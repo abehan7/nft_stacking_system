@@ -100,10 +100,17 @@ contract StakeSystem is ERC20, ERC721Holder, Ownable {
             "This token has already been staked"
         );
 
+        require(
+            nftContract.getApproved(_tokenId) == address(this),
+            "This token is not approved to be staked"
+        );
+
         // nft.approve(address(this), _tokenId);
         // approve는 여기서 하는거 아니고 원래 nft만든 contract에서 해줘야 하는거야
         // 여기서 safeTransferfrom은 자동으로 approve됐는지 확인해주는 기능이 있어
         // 이거가 자동으로 블락킹해
+        // 거래 할때마다 approve해줘야함
+        // 우선 approve 됐는지 확인읗 먼저 해야돼
         nftContract.safeTransferFrom(msg.sender, address(this), _tokenId);
         stakingTokenInfo[_tokenId].owner = msg.sender;
         stakingTokenInfo[_tokenId].startTime = block.timestamp;
