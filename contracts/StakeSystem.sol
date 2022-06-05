@@ -183,4 +183,15 @@ contract StakeSystem is ERC20, ERC721Holder, Ownable {
         }
         return tokenIds;
     }
+
+    function getStakingTokenTimes(uint256 tokenId)
+        public
+        view
+        returns (uint256[2] memory)
+    {
+        return [
+            stakingTokenInfo[tokenId].startTime,
+            stakingTokenInfo[tokenId].finishingTime
+        ];
+    }
 }
