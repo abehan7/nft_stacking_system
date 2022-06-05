@@ -5,9 +5,10 @@ import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/token/ERC721/utils/ERC721Holder.sol";
 import "@openzeppelin/contracts/token/ERC721/IERC721.sol";
+import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import "./interfaces/IStakeSystem.sol";
 
-contract StakeSystem is ERC20, ERC721Holder, Ownable {
+contract StakeSystem is ERC20, ERC721Holder, Ownable, ReentrancyGuard {
     IERC721 public nftContract;
 
     mapping(uint256 => uint256) public tokenStakedAt;
@@ -93,6 +94,7 @@ contract StakeSystem is ERC20, ERC721Holder, Ownable {
 
     function stake(uint256 _tokenId, uint256 stakingTime)
         external
+        nonReentrant
         isValidStakingTime(stakingTime)
     {
         require(
@@ -130,7 +132,11 @@ contract StakeSystem is ERC20, ERC721Holder, Ownable {
         return timeElapsed * EMISSION_RATE;
     }
 
-    function unstake(uint256 _tokenId) external onlyTokenOwner(_tokenId) {
+    function unstake(uint256 _tokenId)
+        external
+        onlyTokenOwner(_tokenId)
+        nonReentrant
+    {
         // checkout if the token staked or not
         require(
             stakingTokenInfo[_tokenId].isStacked,
@@ -145,7 +151,10 @@ contract StakeSystem is ERC20, ERC721Holder, Ownable {
         emit Unstaked(msg.sender, _tokenId);
     }
 
-    function giveUpStaking(uint256 _tokenId) external onlyTokenOwner(_tokenId) {
+    function emergencyUnstake(uint256 _tokenId)
+        external
+        onlyTokenOwner(_tokenId)
+    {
         require(!isWithdrawable(_tokenId), "This token is withdrawable");
         nftContract.transferFrom(address(this), msg.sender, _tokenId);
         delete stakingTokenInfo[_tokenId];
