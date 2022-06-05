@@ -5,14 +5,31 @@ import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/token/ERC721/utils/ERC721Holder.sol";
 import "@openzeppelin/contracts/token/ERC721/IERC721.sol";
+import "./interfaces/IStakeSystem.sol";
 
-contract MyToken is ERC20, ERC721Holder, Ownable {
-    IERC721 public nft;
+contract StakeSystem is ERC20, ERC721Holder, Ownable {
+    IERC721 public nftContract;
+    // IStakeSystem public stakeContract;
+    // IStakeSystem.UserInfo public userInfo;
 
     mapping(uint256 => address) public tokenOwnerOf;
     mapping(uint256 => uint256) public tokenStakedAt;
     mapping(address => uint256) internal balance;
+    mapping(uint256 => IStakeSystem.TokenInfo) internal tokenInfos;
+    // struct TokenInfo {
+    //     uint256 successedNum;
+    //     address owner;
+    //     bool isStacked;
+    //     bool isWithdrawable;
+    //     uint256 startTime;
+    //     uint256 finishingTime;
+    // }
     uint256[] public stakingTokenIds;
+    uint256 public constant STAKING_TIME_1 = 1 days;
+    uint256 public constant STAKING_TIME_2 = 3 days;
+    uint256 public constant STAKING_TIME_3 = 7 days;
+    uint256 public constant STAKING_TIME_4 = 10 days;
+    uint256 public constant STAKING_TIME_5 = 14 days;
 
     // mapping(address => uint256) internal stakedBalance;
     // mapping(uint256 => bool) internal staked;
@@ -20,8 +37,8 @@ contract MyToken is ERC20, ERC721Holder, Ownable {
 
     uint256 public EMISSION_RATE = (50 * 10**decimals()) / 1 days;
 
-    constructor(address _nft) ERC20("MyToken", "MTK") {
-        nft = IERC721(_nft);
+    constructor(address _nftContract) ERC20("MyToken", "MTK") {
+        nftContract = IERC721(_nftContract);
     }
 
     function popToken(uint256 _tokenId) private {
@@ -35,12 +52,21 @@ contract MyToken is ERC20, ERC721Holder, Ownable {
         }
     }
 
-    function stake(uint256 tokenId) external {
+    function stake(uint256 tokenId, uint256 stakingTime) external {
         require(
             tokenOwnerOf[tokenId] == address(0),
             "This token has already been staked"
         );
-        nft.safeTransferFrom(msg.sender, address(this), tokenId);
+        require(
+            stakingTime == 1 ||
+                stakingTime == 2 ||
+                stakingTime == 3 ||
+                stakingTime == 4,
+            "Invalid staking time"
+        );
+
+        nftContract.approve(address(this), tokenId);
+        nftContract.safeTransferFrom(msg.sender, address(this), tokenId);
         tokenOwnerOf[tokenId] = msg.sender;
         tokenStakedAt[tokenId] = block.timestamp;
         balance[msg.sender] += 1;
@@ -56,12 +82,18 @@ contract MyToken is ERC20, ERC721Holder, Ownable {
     function unstake(uint256 tokenId) external {
         require(tokenOwnerOf[tokenId] == msg.sender, "You can't unstake");
         _mint(msg.sender, calculateTokens(tokenId)); // Minting the tokens for staking
-        nft.transferFrom(address(this), msg.sender, tokenId);
+        nftContract.transferFrom(address(this), msg.sender, tokenId);
         delete tokenOwnerOf[tokenId];
         delete tokenStakedAt[tokenId];
         balance[msg.sender] -= 1;
         totalStakingSupply -= 1;
         popToken(tokenId);
+    }
+
+    function claimTokens(uint256 tokenId) external {
+        require(tokenOwnerOf[tokenId] == msg.sender, "You can't claim");
+        _mint(msg.sender, calculateTokens(tokenId)); // Minting the tokens for staking
+        tokenStakedAt[tokenId] = 0;
     }
 
     function tokensOfOwner(address owner)
