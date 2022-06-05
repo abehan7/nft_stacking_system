@@ -122,7 +122,7 @@ contract MyNFT is ERC721A, ERC721AQueryable, Ownable, ReentrancyGuard {
         public
         view
         virtual
-        override
+        override(IERC721A,ERC721A)
         returns (string memory)
     {
         require(

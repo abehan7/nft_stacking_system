@@ -36,10 +36,34 @@ contract StakeSystem is ERC20, ERC721Holder, Ownable {
         nftContract = IERC721(_nftContract);
     }
 
-    modifier onlyStakingTokenOwner(uint256 tokenId) {
+    /// @notice event emitted when a user has staked a nft
+    event Staked(address owner, uint256 tokenId);
+
+    /// @notice event emitted when a user has unstaked a nft
+    event Unstaked(address owner, uint256 tokenId);
+
+    /// @notice event emitted when a user claims reward
+    event RewardPaid(address indexed user, uint256 reward);
+
+    /// @notice Emergency unstake tokens without rewards
+    event EmergencyUnstake(address indexed user, uint256 tokenId);
+
+    modifier onlyTokenOwner(uint256 _tokenId) {
         require(
-            ownerOfStakingToken(tokenId) == msg.sender,
-            "Only the owner of the staking token can do this"
+            nftContract.ownerOf(_tokenId) == msg.sender,
+            "Only the token owner can do this"
+        );
+        _;
+    }
+
+    modifier isValidStakingTime(uint256 stakingTime) {
+        require(
+            stakingTime == 0 ||
+                stakingTime == 1 ||
+                stakingTime == 2 ||
+                stakingTime == 3 ||
+                stakingTime == 4,
+            "Invalid staking time"
         );
         _;
     }
@@ -59,97 +83,96 @@ contract StakeSystem is ERC20, ERC721Holder, Ownable {
         return stakingTokenInfo[_tokenId].finishingTime >= block.timestamp;
     }
 
-    function ownerOfStakingToken(uint256 tokenId)
+    function ownerOfStakingToken(uint256 _tokenId)
         public
         view
         returns (address)
     {
-        return stakingTokenInfo[tokenId].owner;
+        return stakingTokenInfo[_tokenId].owner;
     }
 
-    modifier isValidStakingTime(uint256 stakingTime) {
-        require(
-            stakingTime == 0 ||
-                stakingTime == 1 ||
-                stakingTime == 2 ||
-                stakingTime == 3 ||
-                stakingTime == 4,
-            "Invalid staking time"
-        );
-        _;
-    }
-
-    function stake(uint256 tokenId, uint256 stakingTime)
+    function stake(uint256 _tokenId, uint256 stakingTime)
         external
-        onlyStakingTokenOwner(tokenId)
         isValidStakingTime(stakingTime)
     {
         require(
-            ownerOfStakingToken(tokenId) == address(0),
+            ownerOfStakingToken(_tokenId) == address(0),
             "This token has already been staked"
         );
 
-        nftContract.approve(address(this), tokenId);
-        nftContract.safeTransferFrom(msg.sender, address(this), tokenId);
-        stakingTokenInfo[tokenId].owner = msg.sender;
-        stakingTokenInfo[tokenId].startTime = block.timestamp;
-        stakingTokenInfo[tokenId].finishingTime =
+        // nft.approve(address(this), _tokenId);
+        // approve는 여기서 하는거 아니고 원래 nft만든 contract에서 해줘야 하는거야
+        // 여기서 safeTransferfrom은 자동으로 approve됐는지 확인해주는 기능이 있어
+        // 이거가 자동으로 블락킹해
+        nftContract.safeTransferFrom(msg.sender, address(this), _tokenId);
+        stakingTokenInfo[_tokenId].owner = msg.sender;
+        stakingTokenInfo[_tokenId].startTime = block.timestamp;
+        stakingTokenInfo[_tokenId].isStacked = true;
+        stakingTokenInfo[_tokenId].finishingTime =
             block.timestamp +
             STAKING_TIME_ARR[stakingTime];
         userInfo[msg.sender].balance += 1;
         totalStakingSupply += 1;
-        stakingTokenIds.push(tokenId);
+        stakingTokenIds.push(_tokenId);
+        emit Staked(msg.sender, _tokenId);
     }
 
-    function calculateTokens(uint256 tokenId) public view returns (uint256) {
+    function calculateTokens(uint256 _tokenId) public view returns (uint256) {
         uint256 timeElapsed = block.timestamp -
-            stakingTokenInfo[tokenId].startTime;
+            stakingTokenInfo[_tokenId].startTime;
         return timeElapsed * EMISSION_RATE;
     }
 
-    function unstake(uint256 tokenId) external onlyStakingTokenOwner(tokenId) {
-        _mint(msg.sender, calculateTokens(tokenId)); // Minting the tokens for staking
-        nftContract.transferFrom(address(this), msg.sender, tokenId);
-        delete stakingTokenInfo[tokenId];
+    function unstake(uint256 _tokenId) external onlyTokenOwner(_tokenId) {
+        // checkout if the token staked or not
+        require(
+            stakingTokenInfo[_tokenId].isStacked,
+            "This token is not staked"
+        );
+        _mint(msg.sender, calculateTokens(_tokenId)); // Minting the tokens for staking
+        nftContract.transferFrom(address(this), msg.sender, _tokenId);
+        delete stakingTokenInfo[_tokenId];
         userInfo[msg.sender].balance -= 1;
         totalStakingSupply -= 1;
-        popToken(tokenId);
+        popToken(_tokenId);
+        emit Unstaked(msg.sender, _tokenId);
     }
 
-    function giveUpStaking(uint256 tokenId)
-        external
-        onlyStakingTokenOwner(tokenId)
-    {
-        require(!isWithdrawable(tokenId), "This token is withdrawable");
-        nftContract.transferFrom(address(this), msg.sender, tokenId);
-        delete stakingTokenInfo[tokenId];
+    function giveUpStaking(uint256 _tokenId) external onlyTokenOwner(_tokenId) {
+        require(!isWithdrawable(_tokenId), "This token is withdrawable");
+        nftContract.transferFrom(address(this), msg.sender, _tokenId);
+        delete stakingTokenInfo[_tokenId];
         userInfo[msg.sender].balance -= 1;
         totalStakingSupply -= 1;
-        popToken(tokenId);
+        popToken(_tokenId);
+        emit EmergencyUnstake(msg.sender, _tokenId);
     }
 
-    function claimTokens(uint256 tokenId, uint256 stakingTime)
+    function claimTokens(uint256 _tokenId, uint256 stakingTime)
         external
-        onlyStakingTokenOwner(tokenId)
+        onlyTokenOwner(_tokenId)
         isValidStakingTime(stakingTime)
     {
-        require(isWithdrawable(tokenId), "The token is not withdrawable");
-        _mint(msg.sender, calculateTokens(tokenId)); // Minting the tokens for staking
-        stakingTokenInfo[tokenId].startTime = block.timestamp;
+        require(isWithdrawable(_tokenId), "The token is not withdrawable");
+        _mint(msg.sender, calculateTokens(_tokenId)); // Minting the tokens for staking
+        stakingTokenInfo[_tokenId].startTime = block.timestamp;
         // uint256[] STAKING_TIME_ARR = [1 days, 3 days, 7 days, 10 days, 14 days];
-        stakingTokenInfo[tokenId].finishingTime = STAKING_TIME_ARR[stakingTime];
+        stakingTokenInfo[_tokenId].finishingTime = STAKING_TIME_ARR[
+            stakingTime
+        ];
+        emit RewardPaid(msg.sender, calculateTokens(_tokenId));
     }
 
-    function tokensOfOwner(address owner)
+    function tokensOfOwner(address _owner)
         public
         view
         returns (uint256[] memory)
     {
-        require(owner != address(0), "Invalid owner");
+        require(_owner != address(0), "Invalid owner");
         // uint256[] memory tokens;
         uint256 tokenIdsIdx;
         address currOwnershipAddr;
-        uint256 tokenIdsLength = stakingBalanceOf(owner);
+        uint256 tokenIdsLength = stakingBalanceOf(_owner);
         uint256[] memory tokenIds = new uint256[](tokenIdsLength);
         for (uint256 i = 0; tokenIdsIdx != tokenIdsLength; ++i) {
             // 일단 여기서 오류날꺼 빼박이긴 한데 일단 돌려고보 없애자
@@ -161,15 +184,16 @@ contract StakeSystem is ERC20, ERC721Holder, Ownable {
                 currOwnershipAddr = address(0);
             }
 
-            if (currOwnershipAddr == owner) {
+            if (currOwnershipAddr == _owner) {
                 tokenIds[tokenIdsIdx++] = i;
             }
         }
         return tokenIds;
     }
 
-    function stakingBalanceOf(address account) public view returns (uint256) {
-        return balance[account];
+    function stakingBalanceOf(address _owner) public view returns (uint256) {
+        return userInfo[_owner].balance;
+        // return balance[account];
     }
 
     function getTotalStakingTokenIds() public view returns (uint256[] memory) {
