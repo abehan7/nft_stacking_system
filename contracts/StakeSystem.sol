@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.4;
+pragma solidity ^0.8.9;
 
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
@@ -17,7 +17,7 @@ contract StakeSystem is ERC20, ERC721Holder, Ownable, ReentrancyGuard {
     mapping(address => IStakeSystem.UserInfo) internal userInfo;
     mapping(uint256 => IStakeSystem.StakingTokenInfo) internal stakingTokenInfo;
 
-    function stakingTokenOwnerOf(uint256 tokenId)
+    function ownerOfStakingToken(uint256 tokenId)
         public
         view
         returns (address)
@@ -51,7 +51,7 @@ contract StakeSystem is ERC20, ERC721Holder, Ownable, ReentrancyGuard {
 
     modifier onlyTokenOwner(uint256 _tokenId) {
         require(
-            nftContract.ownerOf(_tokenId) == msg.sender,
+            ownerOfStakingToken(_tokenId) == msg.sender,
             "Only the token owner can do this"
         );
         _;
@@ -81,15 +81,7 @@ contract StakeSystem is ERC20, ERC721Holder, Ownable, ReentrancyGuard {
     }
 
     function isWithdrawable(uint256 _tokenId) public view returns (bool) {
-        return stakingTokenInfo[_tokenId].finishingTime >= block.timestamp;
-    }
-
-    function ownerOfStakingToken(uint256 _tokenId)
-        public
-        view
-        returns (address)
-    {
-        return stakingTokenInfo[_tokenId].owner;
+        return stakingTokenInfo[_tokenId].finishingTime <= block.timestamp;
     }
 
     function stake(uint256 _tokenId, uint256 stakingTime)
@@ -100,11 +92,6 @@ contract StakeSystem is ERC20, ERC721Holder, Ownable, ReentrancyGuard {
         require(
             ownerOfStakingToken(_tokenId) == address(0),
             "This token has already been staked"
-        );
-
-        require(
-            nftContract.getApproved(_tokenId) == address(this),
-            "This token is not approved to be staked"
         );
 
         // nft.approve(address(this), _tokenId);
@@ -142,6 +129,7 @@ contract StakeSystem is ERC20, ERC721Holder, Ownable, ReentrancyGuard {
             stakingTokenInfo[_tokenId].isStacked,
             "This token is not staked"
         );
+        require(isWithdrawable(_tokenId), "This token is not withdrawable");
         _mint(msg.sender, calculateTokens(_tokenId)); // Minting the tokens for staking
         nftContract.transferFrom(address(this), msg.sender, _tokenId);
         delete stakingTokenInfo[_tokenId];
@@ -192,11 +180,11 @@ contract StakeSystem is ERC20, ERC721Holder, Ownable, ReentrancyGuard {
         uint256[] memory tokenIds = new uint256[](tokenIdsLength);
         for (uint256 i = 0; tokenIdsIdx != tokenIdsLength; ++i) {
             // 일단 여기서 오류날꺼 빼박이긴 한데 일단 돌려고보 없애자
-            if (stakingTokenOwnerOf(i) != address(0)) {
-                currOwnershipAddr = stakingTokenOwnerOf(i);
+            if (ownerOfStakingToken(i) != address(0)) {
+                currOwnershipAddr = ownerOfStakingToken(i);
             }
 
-            if (stakingTokenOwnerOf(i) == address(0)) {
+            if (ownerOfStakingToken(i) == address(0)) {
                 currOwnershipAddr = address(0);
             }
 
@@ -217,7 +205,7 @@ contract StakeSystem is ERC20, ERC721Holder, Ownable, ReentrancyGuard {
         uint256[] memory tokenIds = new uint256[](tokenIdsLength);
         uint256 tokenIdsIdx = 0;
         for (uint256 i = 0; i < tokenIdsLength; i++) {
-            if (stakingTokenOwnerOf(stakingTokenIds[i]) != address(0)) {
+            if (ownerOfStakingToken(stakingTokenIds[i]) != address(0)) {
                 tokenIds[tokenIdsIdx++] = stakingTokenIds[i];
             }
         }

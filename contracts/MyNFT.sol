@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.7;
+pragma solidity ^0.8.9;
 
 import "erc721a/contracts/ERC721A.sol";
 import "erc721a/contracts/extensions/ERC721AQueryable.sol";
@@ -122,7 +122,7 @@ contract MyNFT is ERC721A, ERC721AQueryable, Ownable, ReentrancyGuard {
         public
         view
         virtual
-        override(IERC721A,ERC721A)
+        override
         returns (string memory)
     {
         require(
