@@ -1,8 +1,3 @@
-// We require the Hardhat Runtime Environment explicitly here. This is optional
-// but useful for running the script in a standalone fashion through `node <script>`.
-//
-// When running the script with `npx hardhat run <script>` you'll find the Hardhat
-// Runtime Environment's members available in the global scope.
 import { ethers } from "hardhat";
 
 async function main() {
@@ -14,12 +9,23 @@ async function main() {
   // await hre.run('compile');
 
   // We get the contract to deploy
-  const Greeter = await ethers.getContractFactory("Greeter");
-  const greeter = await Greeter.deploy("Hello, Hardhat!");
+  const MyNFT = await ethers.getContractFactory("MyNFT");
+  const RewardToken = await ethers.getContractFactory("RewardToken");
+  const StakeSystem = await ethers.getContractFactory("StakeSystem");
+  const myNFT = await MyNFT.deploy();
+  const rewardToken = await RewardToken.deploy();
 
-  await greeter.deployed();
+  // await myNFT.deployed();
+  // await rewardToken.deployed();
 
-  console.log("Greeter deployed to:", greeter.address);
+  const stakeSystem = await StakeSystem.deploy(
+    myNFT.address,
+    rewardToken.address
+  );
+
+  console.log("myNFT deployed to:", myNFT.address);
+  console.log("rewardToken deployed to:", rewardToken.address);
+  console.log("stakeSystem deployed to:", stakeSystem.address);
 }
 
 // We recommend this pattern to be able to use async/await everywhere
