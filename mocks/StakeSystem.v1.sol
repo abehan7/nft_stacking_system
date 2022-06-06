@@ -42,7 +42,7 @@ contract StakeSystem is ERC721Holder, Ownable, ReentrancyGuard {
         nftContract = IERC721(_nftContract);
         rewardsTokenContract = IRewardTokenContract(_rewardsTokenContract);
         EMISSION_RATE = uint256(
-            (50 * 10**decimals) / 1 days
+            (50 * 10**rewardsTokenContract.getDecimals()) / 1 days
         );
     }
 
@@ -242,6 +242,23 @@ contract StakeSystem is ERC721Holder, Ownable, ReentrancyGuard {
         returns (IStakeSystem.StakingTokenInfo memory)
     {
         return stakingTokenInfo[tokenId];
+    }
+
+    function getStakingTokenInfoBatch(address _owner)
+        public
+        view
+        returns (IStakeSystem.StakingTokenInfo[] memory)
+    {
+        uint256[] memory tokenIds = tokensOfOwner(_owner);
+        uint256 tokenIdsLength = tokenIds.length;
+        IStakeSystem.StakingTokenInfo[]
+            memory stakingTokenInfoBatch = new IStakeSystem.StakingTokenInfo[](
+                tokenIdsLength
+            );
+        for (uint256 i = 0; i < tokenIdsLength; i++) {
+            stakingTokenInfoBatch[i] = getStakingTokenInfo(tokenIds[i]);
+        }
+        return stakingTokenInfoBatch;
     }
 
     function ownerOfStakingToken(uint256 tokenId)
