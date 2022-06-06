@@ -28,26 +28,22 @@ contract StakeSystem is ERC721Holder, Ownable, ReentrancyGuard {
     mapping(address => IStakeSystem.UserInfo) internal userInfo;
     mapping(uint256 => IStakeSystem.StakingTokenInfo) internal stakingTokenInfo;
 
-    function ownerOfStakingToken(uint256 tokenId)
-        public
-        view
-        returns (address)
-    {
-        return stakingTokenInfo[tokenId].owner;
-    }
-
     uint256[] public stakingTokenIds;
 
     uint256[] STAKING_TIME_ARR = [1 days, 3 days, 7 days, 10 days, 14 days];
 
     uint256 public totalStakingSupply = 0;
 
-    uint256 public EMISSION_RATE =
-        uint256((50 * 10**rewardsTokenContract.getDecimals()) / 1 days); //하루에 50개 코인
+    uint256 internal decimals = 18;
+
+    uint256 public EMISSION_RATE = uint256((50 * 10**decimals) / 1 days); //하루에 50개 코인
 
     constructor(address _nftContract, address _rewardsTokenContract) {
         nftContract = IERC721(_nftContract);
         rewardsTokenContract = IRewardTokenContract(_rewardsTokenContract);
+        EMISSION_RATE = uint256(
+            (50 * 10**rewardsTokenContract.getDecimals()) / 1 days
+        );
     }
 
     /// @notice event emitted when a user has staked a nft
@@ -143,7 +139,6 @@ contract StakeSystem is ERC721Holder, Ownable, ReentrancyGuard {
             "This token is not staked"
         );
         require(isWithdrawable(_tokenId), "This token is not withdrawable");
-        // _mint(msg.sender, calculateTokens(_tokenId)); // Minting the tokens for staking
         rewardsTokenContract.mint(msg.sender, calculateTokens(_tokenId));
 
         nftContract.transferFrom(address(this), msg.sender, _tokenId);
@@ -238,5 +233,13 @@ contract StakeSystem is ERC721Holder, Ownable, ReentrancyGuard {
             stakingTokenInfo[tokenId].startTime,
             stakingTokenInfo[tokenId].finishingTime
         ];
+    }
+
+    function ownerOfStakingToken(uint256 tokenId)
+        public
+        view
+        returns (address)
+    {
+        return stakingTokenInfo[tokenId].owner;
     }
 }
