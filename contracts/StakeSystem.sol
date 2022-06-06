@@ -1,15 +1,22 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.9;
 
-import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
+import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/token/ERC721/utils/ERC721Holder.sol";
 import "@openzeppelin/contracts/token/ERC721/IERC721.sol";
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import "./interfaces/IStakeSystem.sol";
 
-contract StakeSystem is ERC20, ERC721Holder, Ownable, ReentrancyGuard {
+interface IRewardTokenContract is IERC20 {
+    function mint(address to, uint256 amount) external;
+
+    function getDecimals() external view returns (uint256);
+}
+
+contract StakeSystem is ERC721Holder, Ownable, ReentrancyGuard {
     IERC721 public nftContract;
+    IRewardTokenContract public rewardsTokenContract;
 
     mapping(uint256 => uint256) public tokenStakedAt;
 
@@ -31,10 +38,12 @@ contract StakeSystem is ERC20, ERC721Holder, Ownable, ReentrancyGuard {
 
     uint256 public totalStakingSupply = 0;
 
-    uint256 public EMISSION_RATE = (50 * 10**decimals()) / 1 days; //하루에 50개 코인
+    uint256 public EMISSION_RATE =
+        uint256((50 * 10**rewardsTokenContract.getDecimals()) / 1 days); //하루에 50개 코인
 
-    constructor(address _nftContract) ERC20("MyToken", "MTK") {
+    constructor(address _nftContract, address _rewardsTokenContract) {
         nftContract = IERC721(_nftContract);
+        rewardsTokenContract = IRewardTokenContract(_rewardsTokenContract);
     }
 
     /// @notice event emitted when a user has staked a nft
@@ -130,7 +139,9 @@ contract StakeSystem is ERC20, ERC721Holder, Ownable, ReentrancyGuard {
             "This token is not staked"
         );
         require(isWithdrawable(_tokenId), "This token is not withdrawable");
-        _mint(msg.sender, calculateTokens(_tokenId)); // Minting the tokens for staking
+        // _mint(msg.sender, calculateTokens(_tokenId)); // Minting the tokens for staking
+        rewardsTokenContract.mint(msg.sender, calculateTokens(_tokenId));
+
         nftContract.transferFrom(address(this), msg.sender, _tokenId);
         delete stakingTokenInfo[_tokenId];
         userInfo[msg.sender].balance -= 1;
@@ -158,7 +169,9 @@ contract StakeSystem is ERC20, ERC721Holder, Ownable, ReentrancyGuard {
         isValidStakingTime(stakingTime)
     {
         require(isWithdrawable(_tokenId), "The token is not withdrawable");
-        _mint(msg.sender, calculateTokens(_tokenId)); // Minting the tokens for staking
+        // _mint(msg.sender, calculateTokens(_tokenId)); // Minting the tokens for staking
+        rewardsTokenContract.mint(msg.sender, calculateTokens(_tokenId));
+
         stakingTokenInfo[_tokenId].startTime = block.timestamp;
         // uint256[] STAKING_TIME_ARR = [1 days, 3 days, 7 days, 10 days, 14 days];
         stakingTokenInfo[_tokenId].finishingTime = STAKING_TIME_ARR[
