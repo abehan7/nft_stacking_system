@@ -28,7 +28,14 @@ contract StakeSystem is ERC721Holder, Ownable, ReentrancyGuard {
 
     uint256[] public stakingTokenIds;
 
-    uint256[] STAKING_TIME_ARR = [1 days, 3 days, 7 days, 10 days, 14 days];
+    // uint256[] STAKING_TIME_ARR = [1 days, 3 days, 7 days, 10 days, 14 days];
+    uint256[] STAKING_TIME_ARR = [
+        1 minutes,
+        2 minutes,
+        3 minutes,
+        4 minutes,
+        5 minutes
+    ];
 
     uint256 public totalStakingSupply = 0;
 
@@ -106,6 +113,7 @@ contract StakeSystem is ERC721Holder, Ownable, ReentrancyGuard {
         // 거래 할때마다 approve해줘야함
         // 우선 approve 됐는지 확인읗 먼저 해야돼
         nftContract.safeTransferFrom(msg.sender, address(this), _tokenId);
+        stakingTokenInfo[_tokenId].tokenId = _tokenId;
         stakingTokenInfo[_tokenId].owner = msg.sender;
         stakingTokenInfo[_tokenId].startTime = block.timestamp;
         stakingTokenInfo[_tokenId].isStacked = true;
@@ -154,6 +162,7 @@ contract StakeSystem is ERC721Holder, Ownable, ReentrancyGuard {
         nftContract.transferFrom(address(this), msg.sender, _tokenId);
         delete stakingTokenInfo[_tokenId];
         userInfo[msg.sender].balance -= 1;
+        userInfo[msg.sender].successedTokenIds.push(_tokenId);
         totalStakingSupply -= 1;
         popToken(_tokenId);
         emit EmergencyUnstake(msg.sender, _tokenId);

@@ -13,12 +13,14 @@ interface IStakeSystem {
      *
      * @param stackedTokenIds - Array of tokenIds that are staked
      * @param successedTokenIds - Array of tokenIds that are successfully staked
-     * @param stakingTokenIds - Array of tokenIds that are staking
+     * @param totalEarndErc20Tokens - Total earned coins
+     * @param balance - Total balance of staked tokens
      */
 
     struct UserInfo {
         uint256[] stackedTokenIds;
         uint256 balance;
+        uint256[] successedTokenIds;
     }
 
     /**
@@ -32,9 +34,15 @@ interface IStakeSystem {
      */
 
     struct StakingTokenInfo {
+        uint256 tokenId;
         address owner;
         bool isStacked;
         uint256 startTime;
         uint256 finishingTime;
     }
+
+    function getStakingTokenInfoBatch(address _tokenOwner)
+        external
+        view
+        returns (StakingTokenInfo[] memory);
 }

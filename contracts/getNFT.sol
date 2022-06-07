@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.9;
 import "erc721a/contracts/interfaces/IERC721AQueryable.sol";
+import "./interfaces/IStakeSystem.sol";
 
 contract GetNFT {
     IERC721AQueryable public nftContract;
