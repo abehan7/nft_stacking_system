@@ -29,19 +29,17 @@ contract StakeSystem is ERC721Holder, Ownable, ReentrancyGuard {
     uint256[] public stakingTokenIds;
 
     // uint256[] STAKING_TIME_ARR = [1 days, 3 days, 7 days, 10 days, 14 days];
-    uint256[] STAKING_TIME_ARR = [
-        1 minutes,
-        2 minutes,
-        3 minutes,
-        4 minutes,
-        5 minutes
-    ];
-
+    uint256[] STAKING_TIME_ARR = [1 hours, 2 hours, 3 hours, 4 hours, 5 hours];
+    // uint256[] STAKING_TIME_ARR = [1 minutes, 2 minutes, 3 minutes, 4 minutes, 5 minutes];
+    // minutes
     uint256 public totalStakingSupply = 0;
 
     uint256 internal decimals = 18;
 
-    uint256 public EMISSION_RATE = uint256((50 * 10**decimals) / 1 days); //하루에 50개 코인
+    // uint256 public EMISSION_RATE = uint256((50 * 10**decimals) / 1 minutes); //1시간에 50개 코인
+    uint256 public EMISSION_RATE = uint256((50 * 10**decimals) / 1 hours); //1시간에 50개 코인
+
+    // uint256 public EMISSION_RATE = uint256((50 * 10**decimals) / 1 days); //하루에 50개 코인
 
     constructor(address _nftContract, address _rewardsTokenContract) {
         nftContract = IERC721(_nftContract);
@@ -127,7 +125,9 @@ contract StakeSystem is ERC721Holder, Ownable, ReentrancyGuard {
     }
 
     function calculateTokens(uint256 _tokenId) public view returns (uint256) {
-        uint256 timeElapsed = block.timestamp -
+        // uint256 timeElapsed = block.timestamp -
+        //     stakingTokenInfo[_tokenId].startTime;
+        uint256 timeElapsed = stakingTokenInfo[_tokenId].finishingTime -
             stakingTokenInfo[_tokenId].startTime;
         return timeElapsed * EMISSION_RATE;
     }
@@ -143,8 +143,10 @@ contract StakeSystem is ERC721Holder, Ownable, ReentrancyGuard {
             "This token is not staked"
         );
         require(isWithdrawable(_tokenId), "This token is not withdrawable");
+        userInfo[msg.sender].totalEarnedErc20Tokens += calculateTokens(
+            _tokenId
+        );
         rewardsTokenContract.mint(msg.sender, calculateTokens(_tokenId));
-
         nftContract.transferFrom(address(this), msg.sender, _tokenId);
         delete stakingTokenInfo[_tokenId];
         userInfo[msg.sender].balance -= 1;
@@ -168,21 +170,59 @@ contract StakeSystem is ERC721Holder, Ownable, ReentrancyGuard {
         emit EmergencyUnstake(msg.sender, _tokenId);
     }
 
-    function claimTokens(uint256 _tokenId, uint256 stakingTime)
+    function claimToken(uint256 _tokenId)
         external
         onlyTokenOwner(_tokenId)
-        isValidStakingTime(stakingTime)
+        nonReentrant
     {
         require(isWithdrawable(_tokenId), "The token is not withdrawable");
         // _mint(msg.sender, calculateTokens(_tokenId)); // Minting the tokens for staking
         rewardsTokenContract.mint(msg.sender, calculateTokens(_tokenId));
+        // rewardsTokenContract.mint(msg.sender, calculateTokens(_tokenId));
+
+        // uint256[] STAKING_TIME_ARR = [1 days, 3 days, 7 days, 10 days, 14 days];
+        uint256 prevTimeGap = stakingTokenInfo[_tokenId].finishingTime -
+            stakingTokenInfo[_tokenId].startTime;
 
         stakingTokenInfo[_tokenId].startTime = block.timestamp;
-        // uint256[] STAKING_TIME_ARR = [1 days, 3 days, 7 days, 10 days, 14 days];
-        stakingTokenInfo[_tokenId].finishingTime = STAKING_TIME_ARR[
-            stakingTime
-        ];
+
+        stakingTokenInfo[_tokenId].finishingTime =
+            block.timestamp +
+            prevTimeGap;
         emit RewardPaid(msg.sender, calculateTokens(_tokenId));
+    }
+
+    function claimTokenBatch(uint256[] memory _tokenIds) external nonReentrant {
+        for (uint256 i = 0; i < _tokenIds.length; i++) {
+            require(
+                ownerOfStakingToken(_tokenIds[i]) == msg.sender,
+                "Only the token owner can do this"
+            );
+        }
+
+        uint256 totalTokens = 0;
+        for (uint256 i = 0; i < _tokenIds.length; i++) {
+            require(
+                isWithdrawable(_tokenIds[i]),
+                "The token is not withdrawable"
+            );
+            totalTokens += calculateTokens(_tokenIds[i]);
+        }
+        // _mint(msg.sender, totalTokens); // Minting the tokens for staking
+        rewardsTokenContract.mint(msg.sender, totalTokens);
+        // rewardsTokenContract.mint(msg.sender, totalTokens);
+
+        for (uint256 i = 0; i < _tokenIds.length; i++) {
+            uint256 prevTimeGap = stakingTokenInfo[_tokenIds[i]].finishingTime -
+                stakingTokenInfo[_tokenIds[i]].startTime;
+
+            stakingTokenInfo[_tokenIds[i]].startTime = block.timestamp;
+
+            stakingTokenInfo[_tokenIds[i]].finishingTime =
+                block.timestamp +
+                prevTimeGap;
+        }
+        emit RewardPaid(msg.sender, totalTokens);
     }
 
     function tokensOfOwner(address _owner)

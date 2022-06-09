@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.9;
+// 0xc6c8d42bDfeb65a6016ECae90f4843d0a509Bb97
 import "erc721a/contracts/interfaces/IERC721AQueryable.sol";
 import "./interfaces/IStakeSystem.sol";
 

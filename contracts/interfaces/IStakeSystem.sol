@@ -21,6 +21,7 @@ interface IStakeSystem {
         uint256[] stackedTokenIds;
         uint256 balance;
         uint256[] successedTokenIds;
+        uint256 totalEarnedErc20Tokens;
     }
 
     /**
