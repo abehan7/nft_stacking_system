@@ -11,20 +11,24 @@ import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/utils/math/SafeMath.sol";
 
 import "./interfaces/IStakeSystem.sol";
+import "./interfaces/IRewardTokenContract.sol";
 
-interface IRewardTokenContract is IERC20 {
-    function mint(address to, uint256 amount) external;
-}
+// import ""
+// interface IRewardTokenContract is IERC20 {
+//     function mint(address to, uint256 amount) external;
+// }
 
-contract StakeSystem is ERC721Holder, Ownable, ReentrancyGuard {
+contract StakeSystem is ERC721Holder, Ownable, ReentrancyGuard, IStakeSystem {
     IERC721 public nftContract;
     IRewardTokenContract public rewardsTokenContract;
 
     mapping(uint256 => uint256) public tokenStakedAt;
 
     mapping(address => uint256) internal balance;
-    mapping(address => IStakeSystem.UserInfo) internal userInfo;
-    mapping(uint256 => IStakeSystem.StakingTokenInfo) internal stakingTokenInfo;
+    mapping(address => UserInfo) internal userInfo;
+    // mapping(address => IStakeSystem.UserInfo) internal userInfo;
+    mapping(uint256 => StakingTokenInfo) internal stakingTokenInfo;
+    // mapping(uint256 => IStakeSystem.StakingTokenInfo) internal stakingTokenInfo;
 
     uint256[] public stakingTokenIds;
 
@@ -47,17 +51,17 @@ contract StakeSystem is ERC721Holder, Ownable, ReentrancyGuard {
         // EMISSION_RATE = uint256((50 * 10**decimals) / 1 days);
     }
 
-    /// @notice event emitted when a user has staked a nft
-    event Staked(address owner, uint256 tokenId);
+    // /// @notice event emitted when a user has staked a nft
+    // event Staked(address owner, uint256 tokenId);
 
-    /// @notice event emitted when a user has unstaked a nft
-    event Unstaked(address owner, uint256 tokenId);
+    // /// @notice event emitted when a user has unstaked a nft
+    // event Unstaked(address owner, uint256 tokenId);
 
-    /// @notice event emitted when a user claims reward
-    event RewardPaid(address indexed user, uint256 reward);
+    // /// @notice event emitted when a user claims reward
+    // event RewardPaid(address indexed user, uint256 reward);
 
-    /// @notice Emergency unstake tokens without rewards
-    event EmergencyUnstake(address indexed user, uint256 tokenId);
+    // /// @notice Emergency unstake tokens without rewards
+    // event EmergencyUnstake(address indexed user, uint256 tokenId);
 
     modifier onlyTokenOwner(uint256 _tokenId) {
         require(
@@ -92,6 +96,17 @@ contract StakeSystem is ERC721Holder, Ownable, ReentrancyGuard {
 
     function isWithdrawable(uint256 _tokenId) public view returns (bool) {
         return stakingTokenInfo[_tokenId].finishingTime <= block.timestamp;
+    }
+
+    function isWithdrawableBatch(uint256[] memory _tokenIds)
+        public
+        view
+        returns (bool)
+    {
+        for (uint256 i = 0; i < _tokenIds.length; i++) {
+            if (!isWithdrawable(_tokenIds[i])) return false;
+        }
+        return true;
     }
 
     function stake(uint256 _tokenId, uint256 stakingTime)
@@ -193,6 +208,10 @@ contract StakeSystem is ERC721Holder, Ownable, ReentrancyGuard {
     }
 
     function claimTokenBatch(uint256[] memory _tokenIds) external nonReentrant {
+        require(
+            isWithdrawableBatch(_tokenIds),
+            "The token is not withdrawable"
+        );
         for (uint256 i = 0; i < _tokenIds.length; i++) {
             require(
                 ownerOfStakingToken(_tokenIds[i]) == msg.sender,
@@ -202,10 +221,6 @@ contract StakeSystem is ERC721Holder, Ownable, ReentrancyGuard {
 
         uint256 totalTokens = 0;
         for (uint256 i = 0; i < _tokenIds.length; i++) {
-            require(
-                isWithdrawable(_tokenIds[i]),
-                "The token is not withdrawable"
-            );
             totalTokens += calculateTokens(_tokenIds[i]);
         }
         // _mint(msg.sender, totalTokens); // Minting the tokens for staking
@@ -284,7 +299,7 @@ contract StakeSystem is ERC721Holder, Ownable, ReentrancyGuard {
     function getStakingTokenInfo(uint256 tokenId)
         public
         view
-        returns (IStakeSystem.StakingTokenInfo memory)
+        returns (StakingTokenInfo memory)
     {
         return stakingTokenInfo[tokenId];
     }
@@ -292,7 +307,7 @@ contract StakeSystem is ERC721Holder, Ownable, ReentrancyGuard {
     function getStakingTokenInfoBatch(address _owner)
         public
         view
-        returns (IStakeSystem.StakingTokenInfo[] memory)
+        returns (StakingTokenInfo[] memory)
     {
         uint256[] memory tokenIds = tokensOfOwner(_owner);
         uint256 tokenIdsLength = tokenIds.length;
@@ -312,5 +327,9 @@ contract StakeSystem is ERC721Holder, Ownable, ReentrancyGuard {
         returns (address)
     {
         return stakingTokenInfo[tokenId].owner;
+    }
+
+    function getUserInfo(address _owner) public view returns (UserInfo memory) {
+        return userInfo[_owner];
     }
 }

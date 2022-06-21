@@ -46,4 +46,28 @@ interface IStakeSystem {
         external
         view
         returns (StakingTokenInfo[] memory);
+
+    function getStakingTokenInfo(uint256 tokenId)
+        external
+        view
+        returns (StakingTokenInfo memory);
+
+    function isWithdrawable(uint256 _tokenId) external view returns (bool);
+
+    function getUserInfo(address _owner)
+        external
+        view
+        returns (UserInfo memory);
+
+    /// @notice event emitted when a user has staked a nft
+    event Staked(address owner, uint256 tokenId);
+
+    /// @notice event emitted when a user has unstaked a nft
+    event Unstaked(address owner, uint256 tokenId);
+
+    /// @notice event emitted when a user claims reward
+    event RewardPaid(address indexed user, uint256 reward);
+
+    /// @notice Emergency unstake tokens without rewards
+    event EmergencyUnstake(address indexed user, uint256 tokenId);
 }
